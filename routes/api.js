@@ -18,10 +18,9 @@ module.exports = function (app) {
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
       try {
-        let books = await Book.find()
+        let result = await Book.find()
 
-        books = books.map((item) => {
-          console.log(item)
+        const out = result.map((item) => {
           return {
             _id: item._id,
             title: item.title,
@@ -30,7 +29,7 @@ module.exports = function (app) {
           }
         })
 
-        return res.json(books)
+        return res.json(out)
       } catch (err) {
         return res.json(err)
       }
@@ -52,24 +51,74 @@ module.exports = function (app) {
     })
 
     .delete(async (req, res) => {
-      //if successful response will be 'complete delete successful'
+      try {
+        await Book.deleteMany({})
+        return res.send('complete delete successful')
+      } catch (err) {
+        res.send('delete fail')
+      }
     })
 
   app
     .route('/api/books/:id')
     .get(async (req, res) => {
+      console.log('GET /api/books/:id')
       let bookid = req.params.id
+      console.log('_id', bookid)
       //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
+
+      try {
+        const result = await Book.findById({ _id: bookid })
+        const out = {
+          _id: result._id,
+          title: result.title,
+          comments: result.comments,
+          commentcount: result.comments.length,
+        }
+
+        return res.json(out)
+      } catch (err) {
+        console.log('catch!')
+        res.send('no book exists')
+        // return res.json(err)
+      }
     })
 
     .post(async (req, res) => {
       let bookid = req.params.id
       let comment = req.body.comment
-      console.log(bookid, comment)
+
+      if (!bookid) return res.send('missing required field title')
+      if (!comment) return res.send('missing required field comment')
+
+      try {
+        const result = await Book.findOneAndUpdate(
+          { _id: bookid },
+          { $push: { comments: comment } },
+          { new: true }
+        )
+
+        const out = {
+          _id: result._id,
+          title: result.title,
+          comments: result.comments,
+          commentcount: result.comments.length,
+        }
+
+        return res.json(out)
+      } catch {
+        // if no book
+        return res.send('no book exists')
+      }
     })
 
     .delete(async (req, res) => {
       let bookid = req.params.id
       //if successful response will be 'delete successful'
+      try {
+        const result = await Book.findOneAndDelete({ _id: bookid })
+        if (!result) return res.send('no book exists')
+        return res.send('delete successful')
+      } catch (err) {}
     })
 }
